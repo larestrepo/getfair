@@ -1,6 +1,6 @@
-import json
 import psycopg2
-from psycopg2.extras import Json
+import requests
+from requests.structures import CaseInsensitiveDict
 
 
 def connect_database():
@@ -53,6 +53,14 @@ def read_query(query):
         # close the cursor and connection
         cur.close()
         conn.close()
+
+def kobo_api(URL, params= {}):
+    headers = CaseInsensitiveDict()
+    headers["Authorization"] = "Token f820e2c138e487e28c87fbb9af4685f7f68051a4"
+
+    resp = requests.get(URL, headers=headers, params=params)
+    rawResult = resp
+    return rawResult
 
 """
 Activate when running manually

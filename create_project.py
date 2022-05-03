@@ -1,4 +1,4 @@
-import psql_interact as db
+from utils import write_query
 import json
 
 if __name__ == '__main__':
@@ -38,5 +38,5 @@ if __name__ == '__main__':
     query += "(" + ", ".join(values) + "), \n"
     query = query[:-3] + ";"
 
-    result = db.write_query(query)
+    result = write_query(query)
 
