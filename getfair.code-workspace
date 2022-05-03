@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../git/CardanoPython"
+		}
+	],
+	"settings": {
+		"sqltools.connections": [
+			{
+				"previewLimit": 50,
+				"server": "getfair.c9pnmejp0cev.us-east-1.rds.amazonaws.com",
+				"port": 5432,
+				"driver": "PostgreSQL",
+				"name": "getfair",
+				"database": "postgres",
+				"username": "getfair",
+				"password": "getfairproject"
+			}
+		]
+	}
+}
