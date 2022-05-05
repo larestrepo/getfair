@@ -1,7 +1,13 @@
-from utils import write_query
+#!/usr/bin/python
+
+import psycopg2
+from dblib import create_tables, insert_project
 import json
 
 if __name__ == '__main__':
+    create_tables()
+
+
     with open('./projects.json', 'r') as file:
         project_master = json.load(file)
 
@@ -23,8 +29,8 @@ if __name__ == '__main__':
     table = 'projects'
     for k in project_dict.keys():
         columns = list(project_dict.keys())
-    query = f"INSERT INTO {table}"
-    query += "(" + ", ".join(columns) + ")\nVALUES "
+    # query = f"INSERT INTO {table}"
+    # query += "(" + ", ".join(columns) + ")\nVALUES "
 
     values = []
     for value in project_dict.values():
@@ -33,10 +39,5 @@ if __name__ == '__main__':
             value = "'" +value + "'"
         values += [str(value)]
 
-    print(values)
 
-    query += "(" + ", ".join(values) + "), \n"
-    query = query[:-3] + ";"
-
-    result = write_query(query)
-
+    project_id = insert_project(table, columns, values)

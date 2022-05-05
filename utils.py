@@ -1,6 +1,9 @@
 import psycopg2
 import requests
 from requests.structures import CaseInsensitiveDict
+import os
+from decouple import config
+from pinata import PinataPy
 
 
 def connect_database():
@@ -18,9 +21,11 @@ def connect_database():
 def write_query(query):
     cur, conn = connect_database()
     if cur != None:
+        id = None
 
         try:
             cur.execute( query )
+            id = cur.fetchone()[0]
             conn.commit()
 
             print ('\nfinished CREATE OR INSERT TABLES execution')
@@ -32,6 +37,7 @@ def write_query(query):
         # close the cursor and connection
         cur.close()
         conn.close()
+        return id
 
 def read_query(query):
     cur, conn = connect_database()
@@ -61,6 +67,16 @@ def kobo_api(URL, params= {}):
     resp = requests.get(URL, headers=headers, params=params)
     rawResult = resp
     return rawResult
+
+def ipfs(file_path_name):
+    #Inputs
+    PINATA_API_KEY= config('PINATA_API_KEY')
+    PINATA_SECRET_API_KEY = config('PINATA_SECRET_API_KEY')
+
+    c = PinataPy(PINATA_API_KEY,PINATA_SECRET_API_KEY)
+    cid = c.pin_file_to_ipfs(file_path_name)
+    print(f"IPFS hash is: {cid}")
+    return cid
 
 """
 Activate when running manually

@@ -1,11 +1,13 @@
 import json
 from datetime import date
 import time
-from utils import read_query, write_query, kobo_api
-import shutil
+from utils import read_query, write_query, kobo_api, ipfs
+import psycopg2
 
 import requests
 from requests.structures import CaseInsensitiveDict
+
+from psql import dblib
 
 """ Curl equivalent
 curl -X GET https://kf.kobotoolbox.org/api/v2/assets/auUF7gnnmorhZ7vSsMSozR/data.json -H 
@@ -24,6 +26,7 @@ This script is doing the following:
 
 """
 
+
 if __name__ == '__main__':
 
     # TODO
@@ -32,8 +35,8 @@ if __name__ == '__main__':
     ASSET_UID = "auUF7gnnmorhZ7vSsMSozR"
     URL = f'https://kf.kobotoolbox.org/api/v2/assets/{ASSET_UID}/data/'
 
-    TODAY = date.fromtimestamp(time.time())
-    # TODAY = '2022-05-02'
+    # TODAY = date.fromtimestamp(time.time())
+    TODAY = '2022-05-04'
 
     QUERY = f'{{"_submission_time":{{"$gt":"{TODAY}"}}}}'
     params = {
@@ -55,31 +58,28 @@ if __name__ == '__main__':
     else:
         project_id = rawResult_fromProjects[0][0]
 
-        # TODO: read this list from json which was used to create the table as well. 
-        columns = [
-            'start',
-            'end',
-            'subscriberid',
-            'deviceid',
-            'Foto_Arbol',
-            'PyeHassGps',
-            'Evaluacion_de_aplicacion',
-            'Tipo_de_plaga_Aplicacion',
-            'Planta_afectada',
-            'tipo_de_plaga',
-            'Finca',
-            '_id',
-            '_uuid',
-            '_validation_status'
-        ]
-
         # Build the insert query
-        results_dict = {}
-        values = []
-        tableName = 'data'
         for register in rawResult['results']:
             column_list = []
             values = []
+            tableName = 'data'
+            # TODO: read this list from json which was used to create the table as well. 
+            columns = [
+                'start',
+                'end',
+                'subscriberid',
+                'deviceid',
+                'Foto_Arbol',
+                'PyeHassGps',
+                'Evaluacion_de_aplicacion',
+                'Tipo_de_plaga_Aplicacion',
+                'Planta_afectada',
+                'tipo_de_plaga',
+                'Finca',
+                '_id',
+                '_uuid',
+                '_validation_status'
+            ]
             query = f"INSERT INTO {tableName}"
             for column in columns:
                 # This is a way to take only the values needed to build the DB table
@@ -102,8 +102,10 @@ if __name__ == '__main__':
             project_id_str = "'" + str(project_id) + "', "
             query += "(" + project_id_str + ", ".join(values) + "), \n"
             print(len(column_list), len(values))
-            query = query[:-3] + ";"
-            # result = write_query(query)
+            query = query[:-3] + " RETURNING id;"
+            data_id = write_query(query)
+            column_list = []
+            values = []
 
             # Find the main image associated to the registry
             MainImageName = register['Foto_Arbol']
@@ -111,13 +113,43 @@ if __name__ == '__main__':
                 if MainImageName == attachment['filename'].split("/")[-1]:
                     instance = attachment['instance']
                     id = attachment['id']
-                
+            
+            # Insert picture data in table
             download_url = f"{URL}{instance}/attachments/{id}/"
             rawResultImage = kobo_api(download_url)
+            tableName = 'pictures'
+            columns = [
+                'project_id',
+                'data_id',
+                'id',
+                'instance',
+                'name',
+                'url',
+                'picture_data'
+            ]
+            values = (str(project_id),
+                str(data_id),
+                str(id),
+                str(instance),
+                "'" + str(MainImageName) + "'",
+                "'" + str(download_url) + "'",
+                psycopg2.Binary(rawResultImage.content))
+            
+            picture_id = dblib.insert_picture(tableName, columns, values)
+            # Store pictures in folder
             rawResultImage.raw.decode_content = True
-            with open('./pictures/' + MainImageName, 'wb') as file:
+            file_path = './pictures/' + MainImageName
+            with open(file_path, 'wb') as file:
                 for chunk in rawResultImage.iter_content(chunk_size=16*1024):
                     file.write(chunk)
                 print('Image sucessfully Downloaded: ', MainImageName)
-    
+            
+            # Upload picture in IPFS
+            ipfs_result = ipfs(file_path)
+            IPFS_HASH = ipfs_result['IpfsHash']
+            
+            # Update table with IPFS Hash
+            query = f"UPDATE {tableName} SET ipfshash = '{IPFS_HASH}' WHERE index = {picture_id} RETURNING id"
+            data_id = write_query(query)
+
 
