@@ -27,10 +27,9 @@ if __name__ == '__main__':
     project_dict['date_created'] = project['date_created']
 
     table = 'projects'
+    columns = []
     for k in project_dict.keys():
         columns = list(project_dict.keys())
-    # query = f"INSERT INTO {table}"
-    # query += "(" + ", ".join(columns) + ")\nVALUES "
 
     values = []
     for value in project_dict.values():

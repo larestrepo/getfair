@@ -103,10 +103,24 @@ def create_tables():
             name VARCHAR (255),
             url text,
             ipfshash text,
-            picture_data BYTEA NOT NULL,
             FOREIGN KEY (project_id) 
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE,
+            FOREIGN KEY (data_id)
+                REFERENCES data (id)
+                ON UPDATE CASCADE ON DELETE CASCADE
+        );
+        """,
+                """
+        CREATE TABLE IF NOT EXISTS transactions (
+            index SERIAL PRIMARY KEY,
+            data_id INTEGER NOT NULL,
+            tx_hash text,
+            time TIMESTAMP,
+            address_origin text,
+            address_destin text,
+            metadata text,
+            fees BIGINT,
             FOREIGN KEY (data_id)
                 REFERENCES data (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
@@ -153,7 +167,8 @@ def insert_project(tableName, columns, values):
         # execute the INSERT statement
         cur.execute(query)
         # get the generated id back
-        project_id = cur.fetchone()[0]
+        project_id = cur.fetchone()
+        project_id = project_id[0] # type: ignore
         # commit the changes to the database
         conn.commit()
         # close communication with the database
@@ -185,7 +200,7 @@ def insert_picture(tableName, columns, values):
         # execute the INSERT statement
         cur.execute(query, values)
         # get the generated id back
-        picture_id = cur.fetchone()[0]
+        picture_id = cur.fetchone()[0] # type: ignore
         # commit the changes to the database
         conn.commit()
         # close communication with the database
