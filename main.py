@@ -131,8 +131,8 @@ if __name__ == '__main__':
                     str(data_id),
                     str(id),
                     str(instance),
-                    "'" + str(MainImageName) + "'",
-                    "'" + str(download_url) + "'")
+                    str(MainImageName),
+                    str(download_url))
                 
                 picture_id = dblib.insert_picture(tableName, columns, values)
                 if instance != 0 or id != 0:

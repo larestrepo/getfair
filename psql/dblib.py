@@ -88,6 +88,7 @@ def create_tables():
             _id BIGINT,
             _uuid TEXT,
             _validation_status text,
+            processed BOOLEAN,
             FOREIGN KEY (project_id) 
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
@@ -186,7 +187,7 @@ def insert_picture(tableName, columns, values):
 
 
     query = f"INSERT INTO {tableName}"
-    query += "(" + ", ".join(columns) + ")\nVALUES(%s,%s,%s,%s,%s,%s,%s) RETURNING index;"
+    query += "(" + ", ".join(columns) + ")\nVALUES(%s,%s,%s,%s,%s,%s) RETURNING index;"
 
     conn = None
     picture_id = None
