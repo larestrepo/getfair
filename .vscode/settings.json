@@ -1,6 +1,10 @@
 {
     "python.linting.flake8Enabled": true,
     "python.linting.enabled": true,
+    "python.linting.lintOnSave": true,
+    "python.linting.flake8Args": [
+        "--ignore=E501",
+    ],
     "python.languageServer": "Pylance",
     "sqltools.connections": [
         {
@@ -9,6 +13,16 @@
             "port": 5432,
             "driver": "PostgreSQL",
             "name": "getfair",
+            "database": "postgres",
+            "username": "getfair",
+            "password": "getfairproject"
+        },
+        {
+            "previewLimit": 50,
+            "server": "getfairdb1.cyqqqlwl6sbr.us-east-2.rds.amazonaws.com",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "getfair1",
             "database": "postgres",
             "username": "getfair",
             "password": "getfairproject"

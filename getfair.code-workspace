@@ -18,6 +18,47 @@
 				"database": "postgres",
 				"username": "getfair",
 				"password": "getfairproject"
+			},
+			{
+				"previewLimit": 50,
+				"server": "getfairdb1.cyqqqlwl6sbr.us-east-2.rds.amazonaws.com",
+				"port": 5432,
+				"driver": "PostgreSQL",
+				"name": "getfair1",
+				"database": "postgres",
+				"username": "getfair",
+				"password": "getfairproject"
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"type": "aws-sam",
+				"request": "direct-invoke",
+				"name": "signfiles:lambda_function.lambda_handler (python3.8)",
+				"invokeTarget": {
+					"target": "code",
+					"projectRoot": "/home/ubuntu/getfair/signfiles",
+					"lambdaHandler": "lambda_function.lambda_handler"
+				},
+				"lambda": {
+					"runtime": "python3.8",
+					"payload": {},
+					"environmentVariables": {}
+				}
+			},
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"env": {
+					"PYTHONPATH": "${workspaceFolder}"
+				}
 			}
 		]
 	}
