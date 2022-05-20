@@ -2,6 +2,7 @@
 from configparser import ConfigParser
 import psycopg2
 
+
 def config(filename='database.ini', section='postgresql'):
     # create a parser
     parser = ConfigParser()
@@ -30,19 +31,16 @@ def connect():
         # connect to the PostgreSQL server
         print('Connecting to the PostgreSQL database...')
         conn = psycopg2.connect(**params)
-		
         # create a cursor
         cur = conn.cursor()
-        
-	# execute a statement
+        # execute a statement
         print('PostgreSQL database version:')
         cur.execute('SELECT version()')
 
         # display the PostgreSQL database server version
         db_version = cur.fetchone()
         print(db_version)
-       
-	# close the communication with the PostgreSQL
+        # close the communication with the PostgreSQL
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -50,6 +48,7 @@ def connect():
         if conn is not None:
             conn.close()
             print('Database connection closed.')
+
 
 def create_tables():
     """ create tables in the PostgreSQL database"""
@@ -60,7 +59,6 @@ def create_tables():
             name VARCHAR (255) NOT NULL,
             country VARCHAR (255),
             sector VARCHAR (255),
-            description text,
             url text,
             owner VARCHAR(255),
             uid text,
@@ -74,22 +72,11 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS data (
             id SERIAL PRIMARY KEY,
             project_id INTEGER NOT NULL,
-            start_date TIMESTAMP, 
-            end_date TIMESTAMP,
-            subscriberid bigint,
-            deviceid text,
-            Foto_Arbol text,
-            PyeHassGps text,
-            Evaluacion_de_aplicacion text,
-            Tipo_de_plaga_Aplicacion text,
-            Planta_afectada text,
-            tipo_de_plaga text,
-            Finca text,
             _id BIGINT,
             _uuid TEXT,
             _validation_status text,
             processed BOOLEAN,
-            FOREIGN KEY (project_id) 
+            FOREIGN KEY (project_id)
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
         );
@@ -104,7 +91,7 @@ def create_tables():
             name VARCHAR (255),
             url text,
             ipfshash text,
-            FOREIGN KEY (project_id) 
+            FOREIGN KEY (project_id)
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE,
             FOREIGN KEY (data_id)
@@ -112,7 +99,7 @@ def create_tables():
                 ON UPDATE CASCADE ON DELETE CASCADE
         );
         """,
-                """
+        """
         CREATE TABLE IF NOT EXISTS transactions (
             index SERIAL PRIMARY KEY,
             data_id INTEGER NOT NULL,
@@ -147,12 +134,11 @@ def create_tables():
         if conn is not None:
             conn.close()
 
+
 def insert_project(tableName, columns, values):
     """ insert multiple projects into the projects table """
-
-
-    query = f"INSERT INTO {tableName} "
-    query += f"(" + ", ".join(columns) + ")\nVALUES"
+    query = f"INSERT INTO {tableName}"
+    query += "(" + ", ".join(columns) + ")\nVALUES"
     query += "(" + ", ".join(values) + "), \n"
     query = query[:-3] + " RETURNING id;"
 
@@ -169,7 +155,7 @@ def insert_project(tableName, columns, values):
         cur.execute(query)
         # get the generated id back
         project_id = cur.fetchone()
-        project_id = project_id[0] # type: ignore
+        project_id = project_id[0]  # type: ignore
         # commit the changes to the database
         conn.commit()
         # close communication with the database
@@ -182,10 +168,9 @@ def insert_project(tableName, columns, values):
 
     return project_id
 
+
 def insert_picture(tableName, columns, values):
     """ insert multiple projects into the projects table """
-
-
     query = f"INSERT INTO {tableName}"
     query += "(" + ", ".join(columns) + ")\nVALUES(%s,%s,%s,%s,%s,%s) RETURNING index;"
 
@@ -201,7 +186,7 @@ def insert_picture(tableName, columns, values):
         # execute the INSERT statement
         cur.execute(query, values)
         # get the generated id back
-        picture_id = cur.fetchone()[0] # type: ignore
+        picture_id = cur.fetchone()[0]  # type: ignore
         # commit the changes to the database
         conn.commit()
         # close communication with the database
@@ -214,6 +199,70 @@ def insert_picture(tableName, columns, values):
 
     return picture_id
 
+def read_query(command):
+    
+    conn = None
+    try:
+        # read the connection parameters
+        params = config()
+        # connect to the PostgreSQL server
+        conn = psycopg2.connect(**params)
+        cur = conn.cursor()
+        # create table one by one
+        cur.execute(command)
+        # close communication with the PostgreSQL database server
+        print("The number of parts: ", cur.rowcount)
+        result = cur.fetchall()
+        cur.close()
+        return result
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        return None
+    finally:
+        if conn is not None:
+            conn.close()
+
+def write_query(command):
+    conn = None
+    try:
+        # read the connection parameters
+        params = config()
+        # connect to the PostgreSQL server
+        conn = psycopg2.connect(**params)
+        cur = conn.cursor()
+        # create table one by one
+        cur.execute(command)
+        id = cur.fetchone()[0]
+        conn.commit()
+        print ('\nfinished CREATE OR INSERT TABLES execution')
+        cur.close()
+        return id
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        conn.rollback()
+        return None
+    finally:
+        if conn is not None:
+            conn.close()
+
+def build_column_values(columns, value_dict):
+    column_list = []
+    values = []
+    for column in columns:
+        # This is a way to take only the values needed to build the DB table
+        if column in value_dict:
+            if value_dict[column]:
+                column_list.append(column)
+                # If it is a string, the value should go with ''
+                if type(value_dict[column]) == str:
+                    value = value_dict[column].replace("'", "''")
+                    value = "'" + value + "'"
+                else:
+                    value = value_dict[column]
+                values += [str(value)]
+        
+    return column_list, values
+        
 
 if __name__ == '__main__':
     connect()
