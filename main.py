@@ -36,6 +36,7 @@ if __name__ == '__main__':
     # TODAY = '2022-05-04'
 
     QUERY = f'{{"_submission_time":{{"$gt":"{TODAY}"}}}}'
+    QUERY = f'{{"_":{{"$eq":"Not Approved"}}}}'
     params = {
         # 'query': QUERY,
         'format': 'json'

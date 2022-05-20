@@ -65,7 +65,8 @@ def create_tables():
             kind VARCHAR(255),
             asset_type VARCHAR(255),
             version_id text,
-            date_created TIMESTAMP
+            date_created TIMESTAMP,
+            project_table text
         );
         """,
         """
