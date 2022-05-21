@@ -108,7 +108,7 @@ def create_tables():
             time TIMESTAMP,
             address_origin text,
             address_destin text,
-            metadata text,
+            metadata json,
             fees BIGINT,
             FOREIGN KEY (data_id)
                 REFERENCES data (id)
