@@ -173,7 +173,7 @@ def insert_project(tableName, columns, values):
 def insert_picture(tableName, columns, values):
     """ insert multiple projects into the projects table """
     query = f"INSERT INTO {tableName}"
-    query += "(" + ", ".join(columns) + ")\nVALUES(%s,%s,%s,%s,%s,%s) RETURNING index;"
+    query += "(" + ", ".join(columns) + ")\nVALUES(%s,%s,%s,%s,%s,%s,%s) RETURNING index;"
 
     conn = None
     picture_id = None
@@ -200,6 +200,7 @@ def insert_picture(tableName, columns, values):
 
     return picture_id
 
+
 def read_query(command):
     
     conn = None
@@ -212,7 +213,6 @@ def read_query(command):
         # create table one by one
         cur.execute(command)
         # close communication with the PostgreSQL database server
-        print("The number of parts: ", cur.rowcount)
         result = cur.fetchall()
         cur.close()
         return result

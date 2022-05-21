@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # 4. Handle response errors
     BASE_URL = "https://kf.kobotoolbox.org/api/v2/assets/"
     # ASSET_UID = "auUF7gnnmorhZ7vSsMSozR"
-    ASSET_UID = "aHmL8pAEXdBrzqkMsG8UBc"
+    ASSET_UID = "aApe6MAjuXWHSVM36sj2Js"
     URL = f'https://kf.kobotoolbox.org/api/v2/assets/{ASSET_UID}/data/'
 
     TODAY = date.fromtimestamp(time.time())

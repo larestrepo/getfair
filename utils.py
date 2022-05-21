@@ -48,7 +48,6 @@ def read_query(query):
             conn.commit()
 
             print ('\nfinished SELECT execution')
-            print("The number of parts: ", cur.rowcount)
             return cur.fetchall()
 
         except (Exception, psycopg2.Error) as error:
