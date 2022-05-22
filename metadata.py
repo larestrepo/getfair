@@ -40,7 +40,7 @@ def build_metadata():
                 transaction_id = read_query(query)
                 if not transaction_id:
 
-                    tableName = 'projects'
+                    tableName = 'projects'  
                     query = f"SELECT id, name, country, sector, url, owner, uid, kind, asset_type, version_id, date_created FROM {tableName} WHERE id= '{project_id}'"
                     project_result = read_query(query)
                     # Build generic metadata
@@ -103,6 +103,9 @@ def build_metadata():
                     print(f"Metadata updated succesfully with transaction ID: {transaction_id}")
                 else:
                     print(f"Records already exists in transaction table: {transaction_id}")
+                
+                return transaction_id
+
 
             
         else:

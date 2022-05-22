@@ -104,12 +104,15 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS transactions (
             index SERIAL PRIMARY KEY,
             data_id INTEGER NOT NULL,
-            tx_hash text,
-            time TIMESTAMP,
             address_origin text,
             address_destin text,
+            txin text,
+            tx_cborhex json,
+            tx_hash text,
+            time TIMESTAMP,
             metadata json,
             fees BIGINT,
+            network text,
             FOREIGN KEY (data_id)
                 REFERENCES data (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
