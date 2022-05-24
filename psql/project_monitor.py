@@ -107,8 +107,9 @@ def create_data(data, _id_array):
                 data_dict['mlocation'] = value['group_usuario/municipio_ubicacion']
                 data_dict['gpslocation'] = value['group_usuario/ubicacion_usuario']
                 data_dict['processed'] = "False"
-                validation_status = value['_validation_status']
                 data_dict['blockchain'] = "False"
+                data_dict['submission'] = value['_submission_time']
+                validation_status = value['_validation_status']
                 if validation_status != {}:
                     data_dict['blockchain'] = "True"
                     data_dict['validation'] = validation_status['label']
@@ -133,77 +134,80 @@ def create_data(data, _id_array):
     except Exception:
         print(f"Problems creating the data:  {_id}")
 
-def create_bcprojects(data, _id_array):
-    bcprojects_id = {}
-    _id = None
+def create_measurements(data, meas_result):
+    
     try:
         for value in data:
-            validation_status = value['_validation_status']
             _id = value['_id']
-            if _id not in _id_array:
-                # Section to add generic measurement values 
-                # Exclusion fields
-                exclusions = [
-                    "_id",
-                    "_uuid",
-                    'formhub/uuid',
-                    'meta/instanceID',
-                    '_xform_id_string',
-                    '_attachments',
-                    '_status',
-                    '_tags',
-                    '_notes',
-                    '__version__',
-                    '_geolocation',
-                    "meta/instanceID",
-                    "group_usuario/nombre_usuario",
-                    "group_usuario/cargo_usuario",
-                    "group_usuario/departamento_ubicacion",
-                    "group_usuario/municipio_ubicacion",
-                    "group_usuario/ubicacion_usuario",
-                    "group_usuario/ubicacion_usuario_ts",
-                    "_submission_time",
-                    "_validation_status",
-                    "_submitted_by"
-                    ]
-                download_url = None
-                pairs = []
-                measurement_dict = {}
-                file_dict = {}
-                for keys, v in value.items():
-                    if keys not in exclusions:
-                        if v != [] or v != {}:
-                            keys = keys.split('/')[-1]
-                            if '.png' in str(v):
-                                for attachment in value['_attachments']:
-                                    if v == attachment['filename'].split('/')[-1]:
-                                        instance = attachment['instance']
-                                        id = attachment['id']
-                                        download_url = f"{URL}{instance}/attachments/{id}/"
-                                file_dict[keys] = [v, download_url]
-                            else:
-                                measurement_dict[keys] = v
-                pairs = list(zip(measurement_dict, file_dict))
-                print(pairs)
-                # pairs.append((measurement_dict, file_dict))
-                # print(pairs)
+            exclusions = [
+                "_id",
+                'formhub/uuid',
+                "group_usuario/nombre_usuario",
+                "group_usuario/cargo_usuario",
+                "group_usuario/departamento_ubicacion",
+                "group_usuario/municipio_ubicacion",
+                "group_usuario/ubicacion_usuario",
+                "group_usuario/ubicacion_usuario_ts",
+                '__version__',
+                'meta/instanceID',
+                '_xform_id_string',
+                "_uuid",
+                '_attachments',
+                '_status',
+                '_geolocation',
+                "_submission_time",
+                '_tags',
+                '_notes',
+                "_validation_status",
+                "_submitted_by"
+                ]
+            download_url = None
+            pairs = []
+            measurement_dict = {}
+            file_dict = {}
+            for keys, v in value.items():
+                if keys not in exclusions:
+                    if v != [] or v != {}:
+                        keys = keys.split('/')[-1].split('_')
+                        if 'Arc' in keys:
+                            for attachment in value['_attachments']:
+                                if v == attachment['filename'].split('/')[-1]:
+                                    instance = attachment['instance']
+                                    id = attachment['id']
+                                    download_url = f"{URL}{instance}/attachments/{id}/"
+                            file_dict[keys[1] + '_' + keys[2]] = [v, download_url]
+                        else:
+                            measurement_dict[keys[1] + '_' + keys[2]] = v
+            pairs = list(zip(measurement_dict, file_dict))
+            print(pairs)
+            # pairs.append((measurement_dict, file_dict))
+            # print(pairs)
 
-                # Create the first records in data table
-                tableName = 'bcprojects'
-                blockchain = "'False'"
-                if validation_status != {}:
-                    blockchain = "'True'"
-                
-                for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
-                    v = measurement_dict[measurement_name]
-                    file_name = file_dict[file][0]
-                    kobo_url = file_dict[file][1]
-                    query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, kobo_url, blockchain)
-                    VALUES ({project_ids[0]}, {_id}, '{measurement_name}', {v}, '{file_name}', '{kobo_url}', {blockchain}) RETURNING id;
+            # Create the first records in data table
+            tableName = 'measurement'
+            meas_ids = []
+            meas_meas = []
+            meas_values = []
+            meas_files = []
+            for meas in meas_result:
+                meas_ids.append(meas[0])
+                meas_meas.append(meas[1])
+                meas_values.append(meas[2])
+                meas_files.append(meas[3])
+            for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
+                v = measurement_dict[measurement_name]
+                file_name = file_dict[file][0]
+                kobo_url = file_dict[file][1]
+                if _id not in meas_ids and measurement_name not in meas_meas:
+                    query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, kobo_url)
+                    VALUES ({project_ids[0]}, {_id}, '{measurement_name}', {v}, '{file_name}', '{kobo_url}') RETURNING id;
                     """
-                    bcprojects_id = write_query(query)
+                else:
+                    query = f"""UPDATE {tableName} SET value = {v}, file_name = '{file_name}', kobo_url = '{kobo_url}' WHERE measurement = '{measurement_name}';
+                    """
+                measurement_id = write_query(query)
 
-        return bcprojects_id
+        return measurement_id
             
     except Exception:
         print(f"Problems creating the data in bcprojects:  {_id}")
@@ -372,9 +376,12 @@ if __name__ == '__main__':
             if _ids != [] or _ids is not None:
                 for _id in _ids:
                     _id_array.append(_id[0])
-            # bcprojects_id = create_bcprojects(data,_id_array)
             # Insert new data or update data if validation is true
             create_data(data, _id_array)
+            tableName = 'measurement'
+            query = f"SELECT _id, measurement, value, file_name FROM {tableName};"
+            meas_result = read_query(query)
+            bcprojects_id = create_measurements(data, meas_result)
         # Check if transaction results are pending to be sent to the blockchain
         tableName = 'data'
         query = f"SELECT project_id, _id, id FROM {tableName} WHERE blockchain = 'TRUE' and processed = 'FALSE';"

@@ -80,6 +80,7 @@ def create_tables():
             role TEXT,
             dlocation TEXT,
             mlocation TEXT,
+            submission TIMESTAMP,
             blockchain BOOLEAN,
             processed BOOLEAN,
             FOREIGN KEY (project_id)
@@ -124,7 +125,7 @@ def create_tables():
         );
         """,
         """
-        CREATE TABLE IF NOT EXISTS bcprojects (
+        CREATE TABLE IF NOT EXISTS measurement (
             id SERIAL PRIMARY KEY,
             project_id INTEGER NOT NULL,
             _id BIGINT,
@@ -132,7 +133,6 @@ def create_tables():
             value NUMERIC,
             file_name TEXT,
             kobo_url TEXT,
-            blockchain BOOLEAN,
             FOREIGN KEY (project_id)
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE

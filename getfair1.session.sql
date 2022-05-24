@@ -1,4 +1,4 @@
-Drop TABLE bcprojects;
+Drop TABLE measurement;
 drop table transactions;
 drop table pictures;
 drop table data;
