@@ -1,8 +1,9 @@
+Drop TABLE bcprojects;
 drop table transactions;
 drop table pictures;
 drop table data;
 DROP TABLE projects;
 
--- select * from pictures;
+-- select * from bcprojects;
 
 -- ALTER TABLE transactions ADD COLUMN metadata1 JSON;

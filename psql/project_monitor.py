@@ -9,7 +9,6 @@ def create_projects(projects, uid_array):
     uid = None
     project_id_array = []
     try:
-        i = 1
         for project in projects:
             deployment__active = project['deployment__active']
             owner__username = project['owner__username']
@@ -26,8 +25,6 @@ def create_projects(projects, uid_array):
                 project_dict['asset_type'] = project['asset_type']
                 project_dict['version_id'] = project['version_id']
                 project_dict['date_created'] = project['date_created']
-                project_dict['project_table'] = 'project' + str(i)
-                i += 1
                 table = 'projects'
                 columns = []
                 for k in project_dict.keys():
@@ -92,35 +89,124 @@ def create_data(data, _id_array):
     _id = None
     try:
         for value in data:
-            validation_status = value['_validation_status']
             _id = value['_id']
-            if validation_status != {} and _id not in _id_array and validation_status['label'] == "Approved":
+            validation_status = value['_validation_status']
+            if _id in _id_array:
+                if validation_status != {}:
+                    tableName = 'data'
+                    query = f"UPDATE {tableName} SET blockchain = 'TRUE' WHERE _id = '{_id}' returning index;"
+                    data_id = write_query(query)
+            if _id not in _id_array:
+                # Setting up generic variables for the registry
+                data_dict['project_id']= project_ids[0]
+                data_dict['_id'] = value['_id']
+                data_dict['_uuid'] = value['_uuid']
+                data_dict['usuario'] = value['group_usuario/nombre_usuario']
+                data_dict['role'] = value['group_usuario/cargo_usuario']
+                data_dict['dlocation'] = value['group_usuario/departamento_ubicacion']
+                data_dict['mlocation'] = value['group_usuario/municipio_ubicacion']
+                data_dict['gpslocation'] = value['group_usuario/ubicacion_usuario']
+                data_dict['processed'] = "False"
+                validation_status = value['_validation_status']
+                data_dict['blockchain'] = "False"
+                if validation_status != {}:
+                    data_dict['blockchain'] = "True"
+                    data_dict['validation'] = validation_status['label']
                 tableName = 'data'
-                columns = [
-                    '_id',
-                    '_uuid',
-                ]
+                columns = []
+                for k in data_dict.keys():
+                    columns = list(data_dict.keys())
+                values = []
+                for value in data_dict.values():
+                    if type(value) ==str:
+                        value = value.replace("'", "''")
+                        value = "'" +value + "'"
+                    values += [str(value)]
+
                 query = f"INSERT INTO {tableName}"
-                column_list, values = build_column_values(columns, value)
-                print(project_ids, column_list, values)
-
-                query += "(project_id, " + ", ".join(column_list) + ", processed)\nVALUES"
-                project_id_str = "'" + str(project_ids[0]) + "', "
-                procssed_str = "'False'"
-                query += "(" + project_id_str + ", ".join(values) + "," + procssed_str + "), \n"
-                print(len(column_list), len(values))
+                query += "(" + ", ".join(columns) + ")\nVALUES"
+                query += "(" + ", ".join(values) + "), \n"
                 query = query[:-3] + " RETURNING id;"
+                print(query)
                 data_id = write_query(query)
-
-                picture_id_array = create_picture(data_id, value)
-                data_dict = {
-                    data_id: picture_id_array
-                }
-    
-        return data_dict
             
     except Exception:
         print(f"Problems creating the data:  {_id}")
+
+def create_bcprojects(data, _id_array):
+    bcprojects_id = {}
+    _id = None
+    try:
+        for value in data:
+            validation_status = value['_validation_status']
+            _id = value['_id']
+            if _id not in _id_array:
+                # Section to add generic measurement values 
+                # Exclusion fields
+                exclusions = [
+                    "_id",
+                    "_uuid",
+                    'formhub/uuid',
+                    'meta/instanceID',
+                    '_xform_id_string',
+                    '_attachments',
+                    '_status',
+                    '_tags',
+                    '_notes',
+                    '__version__',
+                    '_geolocation',
+                    "meta/instanceID",
+                    "group_usuario/nombre_usuario",
+                    "group_usuario/cargo_usuario",
+                    "group_usuario/departamento_ubicacion",
+                    "group_usuario/municipio_ubicacion",
+                    "group_usuario/ubicacion_usuario",
+                    "group_usuario/ubicacion_usuario_ts",
+                    "_submission_time",
+                    "_validation_status",
+                    "_submitted_by"
+                    ]
+                download_url = None
+                pairs = []
+                measurement_dict = {}
+                file_dict = {}
+                for keys, v in value.items():
+                    if keys not in exclusions:
+                        if v != [] or v != {}:
+                            keys = keys.split('/')[-1]
+                            if '.png' in str(v):
+                                for attachment in value['_attachments']:
+                                    if v == attachment['filename'].split('/')[-1]:
+                                        instance = attachment['instance']
+                                        id = attachment['id']
+                                        download_url = f"{URL}{instance}/attachments/{id}/"
+                                file_dict[keys] = [v, download_url]
+                            else:
+                                measurement_dict[keys] = v
+                pairs = list(zip(measurement_dict, file_dict))
+                print(pairs)
+                # pairs.append((measurement_dict, file_dict))
+                # print(pairs)
+
+                # Create the first records in data table
+                tableName = 'bcprojects'
+                blockchain = "'False'"
+                if validation_status != {}:
+                    blockchain = "'True'"
+                
+                for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
+                    v = measurement_dict[measurement_name]
+                    file_name = file_dict[file][0]
+                    kobo_url = file_dict[file][1]
+                    query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, kobo_url, blockchain)
+                    VALUES ({project_ids[0]}, {_id}, '{measurement_name}', {v}, '{file_name}', '{kobo_url}', {blockchain}) RETURNING id;
+                    """
+                    bcprojects_id = write_query(query)
+
+        return bcprojects_id
+            
+    except Exception:
+        print(f"Problems creating the data in bcprojects:  {_id}")
 
 def build_metadata(data_result):
     # Exclusion fields
@@ -150,11 +236,11 @@ def build_metadata(data_result):
         tableName = 'transactions'
         query = f"SELECT index FROM {tableName} WHERE data_id = '{data_id}';"
         transaction_row = read_query(query)
-        if not transaction_row:
+        tableName = 'projects'
+        query = f"SELECT id, name, country, sector, url, owner, uid, kind, asset_type, version_id, date_created FROM {tableName} WHERE id= '{project_id}'"
+        project_result = read_query(query)
+        if not transaction_row and project_result is not None:
 
-            tableName = 'projects'
-            query = f"SELECT id, name, country, sector, url, owner, uid, kind, asset_type, version_id, date_created FROM {tableName} WHERE id= '{project_id}'"
-            project_result = read_query(query)
             # Build generic metadata
             generic_metadata = {}
             generic_metadata['name'] = project_result[0][1]
@@ -162,8 +248,6 @@ def build_metadata(data_result):
             generic_metadata['sector'] = project_result[0][3]
             generic_metadata['kind'] = project_result[0][7]
             generic_metadata['asset_type'] = project_result[0][8]
-
-
             ASSET_UID = project_result[0][6]
             URL = f'https://kf.kobotoolbox.org/api/v2/assets/{ASSET_UID}/data/'
             params = {
@@ -226,21 +310,20 @@ def transaction_build(master_address, metadata):
 
     witness = 1
     params = {
-    "message": {
-        "tx_info": {
-        "address_origin": [
-            master_address,
-            ],
-            "address_destin":None,
-        "change_address": master_address,
-        "metadata": metadata,
-        "mint": None,
-        "script_path": None,
-        "witness": witness,
+        "message": {
+            "tx_info": {
+                "address_origin": master_address,
+                "address_destin": None,
+                "change_address": master_address,
+                "metadata": metadata,
+                "mint": None,
+                "script_path": None,
+                "witness": witness,
+            }
         }
     }
-    }
     return params
+
 
 if __name__ == '__main__':
 
@@ -276,7 +359,12 @@ if __name__ == '__main__':
             }
             rawResult = kobo_api(URL, params)
             data = json.loads(rawResult.content.decode('utf-8'))
-            data = data['results']
+            with open('./data.json', 'w') as file:
+                json.dump(data, file, indent=4, ensure_ascii=False)
+            if 'results' in data:
+                data = data['results']
+            else:
+                continue
             tableName = 'data'
             query = f"SELECT _id FROM {tableName};"
             _ids = read_query(query)
@@ -284,10 +372,12 @@ if __name__ == '__main__':
             if _ids != [] or _ids is not None:
                 for _id in _ids:
                     _id_array.append(_id[0])
-            data_dict = create_data(data, _id_array)
+            # bcprojects_id = create_bcprojects(data,_id_array)
+            # Insert new data or update data if validation is true
+            create_data(data, _id_array)
         # Check if transaction results are pending to be sent to the blockchain
         tableName = 'data'
-        query = f"SELECT project_id, _id, id FROM {tableName} WHERE processed = 'FALSE';"
+        query = f"SELECT project_id, _id, id FROM {tableName} WHERE blockchain = 'TRUE' and processed = 'FALSE';"
         data_results = read_query(query)
         if data_results != [] or data_results is not None:
             for data_result in data_results:
@@ -299,15 +389,16 @@ if __name__ == '__main__':
                 tableName = 'transactions'
                 query = f"SELECT metadata FROM {tableName} WHERE index = '{index}';"
                 metadata = read_query(query)
-                master_address = 'addr_test1qpr9xmkn4fpexdcd9e8kt8fektvqyrg3vetmw8pmmlava2kcyxgcpfar5pu5dlxx9y9c0mm2mtj48uz56q9aakvn2vksw633r5'
+                master_address = 'MasterGetFair'
                 metadata_array = metadata[0][0]
                 for metadata in metadata_array:
                     params = transaction_build(master_address, metadata)
                     print(metadata)
                     node = base.Node()
                     estimated_fees = node.build_tx_components(**params)
-                    fees = estimated_fees.split(' ')[-1]
-
+                    fees = 0
+                    if estimated_fees is not None:
+                        fees = estimated_fees.split(' ')[-1]
                     # Analyze the transaction
                     tx_name_file = 'tx.draft'
                     tx_result = node.analyze_tx(tx_name_file)
@@ -324,8 +415,17 @@ if __name__ == '__main__':
                     tableName = 'transactions'
                     query = f"UPDATE {tableName} SET address_origin = '{master_address}', txin = '{tx_utxo_input}', tx_cborhex = {Json(cbor_hex)}, fees='{fees}', network='{network}' returning index;"
                     transaction_id = write_query(query)
-
-
+                    transaction_sign_result = node.sign_transaction(master_address)
+                    transaction_submit_result = node.submit_transaction()
+                    TxHash = node.get_txid()
+                    # Store the transaction result in database
+                    tableName = 'transactions'
+                    query = f"UPDATE {tableName} SET tx_hash = '{TxHash}' where index='{transaction_id}' returning index;"
+                    transaction_id = write_query(query)
+                    tableName = 'data'
+                    query = f"UPDATE {tableName} SET processed = 'True' WHERE id='{data_result[2]}' returning id;"
+                    data_id = write_query(query)
+                    print(f"transaction succesfully submitted with Hash: {TxHash} in table 'data' with id: {data_id} and 'table' transactions with index: {transaction_id}")
         else:
             print("No data to process in the blockchain")
     except TypeError:

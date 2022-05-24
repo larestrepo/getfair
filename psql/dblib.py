@@ -65,8 +65,7 @@ def create_tables():
             kind VARCHAR(255),
             asset_type VARCHAR(255),
             version_id text,
-            date_created TIMESTAMP,
-            project_table text
+            date_created TIMESTAMP
         );
         """,
         """
@@ -75,7 +74,13 @@ def create_tables():
             project_id INTEGER NOT NULL,
             _id BIGINT,
             _uuid TEXT,
-            _validation_status text,
+            validation TEXT,
+            gpslocation TEXT,
+            usuario TEXT,
+            role TEXT,
+            dlocation TEXT,
+            mlocation TEXT,
+            blockchain BOOLEAN,
             processed BOOLEAN,
             FOREIGN KEY (project_id)
                 REFERENCES projects (id)
@@ -117,7 +122,22 @@ def create_tables():
                 REFERENCES data (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
         );
-        """)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS bcprojects (
+            id SERIAL PRIMARY KEY,
+            project_id INTEGER NOT NULL,
+            _id BIGINT,
+            measurement TEXT,
+            value NUMERIC,
+            file_name TEXT,
+            kobo_url TEXT,
+            blockchain BOOLEAN,
+            FOREIGN KEY (project_id)
+                REFERENCES projects (id)
+                ON UPDATE CASCADE ON DELETE CASCADE
+        );
+        """,)
     conn = None
     try:
         # read the connection parameters
@@ -207,6 +227,7 @@ def insert_picture(tableName, columns, values):
 def read_query(command):
     
     conn = None
+    result = []
     try:
         # read the connection parameters
         params = config()
@@ -218,16 +239,16 @@ def read_query(command):
         # close communication with the PostgreSQL database server
         result = cur.fetchall()
         cur.close()
-        return result
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
-        return None
     finally:
         if conn is not None:
             conn.close()
+    return result
 
 def write_query(command):
     conn = None
+    id = 0
     try:
         # read the connection parameters
         params = config()
@@ -236,14 +257,17 @@ def write_query(command):
         cur = conn.cursor()
         # create table one by one
         cur.execute(command)
-        id = cur.fetchone()[0]
+        result = cur.fetchone()
+        if result is not None:
+            id = result[0]
         conn.commit()
         print ('\nfinished CREATE OR INSERT TABLES execution')
         cur.close()
         return id
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
-        conn.rollback()
+        if conn is not None:
+            conn.rollback()
         return None
     finally:
         if conn is not None:
