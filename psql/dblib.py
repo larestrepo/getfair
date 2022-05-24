@@ -93,7 +93,7 @@ def create_tables():
             index SERIAL PRIMARY KEY,
             project_id INTEGER NOT NULL,
             data_id INTEGER NOT NULL,
-            id bigint NOT NULL,
+            picture_id bigint NOT NULL,
             instance bigint NOT NULL,
             name VARCHAR (255),
             url text,
@@ -132,6 +132,8 @@ def create_tables():
             measurement TEXT,
             value NUMERIC,
             file_name TEXT,
+            instance BIGINT,
+            picture_id BIGINT,
             kobo_url TEXT,
             FOREIGN KEY (project_id)
                 REFERENCES projects (id)

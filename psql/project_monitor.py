@@ -9,77 +9,80 @@ def create_projects(projects, uid_array):
     uid = None
     project_id_array = []
     try:
-        for project in projects:
-            deployment__active = project['deployment__active']
-            owner__username = project['owner__username']
-            uid = project['uid']
-            if deployment__active and uid not in uid_array and owner__username=='getfair':
-                project_dict = {}
-                project_dict['name'] = project['name']
-                project_dict['country'] = project['settings']['country'][0]['label']
-                project_dict['sector'] = project['settings']['sector']['label']
-                project_dict['url'] = project['url']
-                project_dict['owner'] = project['owner']
-                project_dict['uid'] = project['uid']
-                project_dict['kind'] = project['kind']
-                project_dict['asset_type'] = project['asset_type']
-                project_dict['version_id'] = project['version_id']
-                project_dict['date_created'] = project['date_created']
-                table = 'projects'
-                columns = []
-                for k in project_dict.keys():
-                    columns = list(project_dict.keys())
+        if projects != []:
+            for project in projects:
+                deployment__active = project['deployment__active']
+                owner__username = project['owner__username']
+                uid = project['uid']
+                if deployment__active and uid not in uid_array and owner__username=='getfair':
+                    project_dict = {}
+                    project_dict['name'] = project['name']
+                    project_dict['country'] = project['settings']['country'][0]['label']
+                    project_dict['sector'] = project['settings']['sector']['label']
+                    project_dict['url'] = project['url']
+                    project_dict['owner'] = project['owner']
+                    project_dict['uid'] = project['uid']
+                    project_dict['kind'] = project['kind']
+                    project_dict['asset_type'] = project['asset_type']
+                    project_dict['version_id'] = project['version_id']
+                    project_dict['date_created'] = project['date_created']
+                    table = 'projects'
+                    columns = []
+                    for k in project_dict.keys():
+                        columns = list(project_dict.keys())
 
-                values = []
-                for value in project_dict.values():
-                    if type(value) ==str:
-                        value = value.replace("'", "''")
-                        value = "'" +value + "'"
-                    values += [str(value)]
-                project_id = insert_project(table, columns, values)
-                print(f"Project id {uid} was created")
-                project_id_array.append(project_id)
-        return project_id_array
+                    values = []
+                    for value in project_dict.values():
+                        if type(value) ==str:
+                            value = value.replace("'", "''")
+                            value = "'" +value + "'"
+                        values += [str(value)]
+                    project_id = insert_project(table, columns, values)
+                    print(f"Project id {uid} was created")
+                    project_id_array.append(project_id)
+            return project_id_array
     except Exception:
         print(f"Problems creating project with id:  {uid}")
 
-def create_picture(data_id, value):
+def create_picture(data_result):
     try:
         picture_id_array = []
-        for key, v in value.items():
-            if '.png' in str(v):
-                for attachment in value['_attachments']:
-                    if v == attachment['filename'].split('/')[-1]:
-                        instance = attachment['instance']
-                        id = attachment['id']
-                        #Download the picture
-                        download_url = f"{URL}{instance}/attachments/{id}/"
-                        rawResultImage = kobo_api(download_url)
-                        # Store pictures in folder
-                        rawResultImage.raw.decode_content = True
-                        file_path = './pictures/' + v
-                        with open(file_path, 'wb') as file:
-                            for chunk in rawResultImage.iter_content(chunk_size=16 * 1024):
-                                file.write(chunk)
-                            print('Image sucessfully Downloaded: ', v)
-                        # Upload picture in IPFS
-                        ipfs_result = ipfs(file_path)
-                        IPFS_HASH = ipfs_result['IpfsHash']
-                        # Update table with IPFS Hash
-                        # Insert picture data in table
-                        tableName = 'pictures'
-                        columns = [
-                            'project_id',
-                            'data_id',
-                            'id',
-                            'instance',
-                            'name',
-                            'url',
-                            'ipfshash',
-                        ]
-                        values = (str(project_ids[0]), str(data_id), str(id), str(instance), str(v), str(download_url), str(IPFS_HASH))
-                        picture_id = insert_picture(tableName, columns, values)
-                        picture_id_array.append(picture_id)
+        project_id = data_result[0]
+        _id = data_result[1]
+        data_id = data_result[2]
+        query = f"SELECT file_name, instance, picture_id, kobo_url FROM measurement WHERE project_id = '{project_id}' and _id = '{_id}'"
+        picture_results = read_query(query)
+        for picture_result in picture_results:
+            file_name = picture_result[0]
+            instance = picture_result[1]
+            picture_id = picture_result[2]
+            kobo_url = picture_result[3]
+            rawResultImage = kobo_api(kobo_url)
+            # Store pictures in folder
+            rawResultImage.raw.decode_content = True
+            file_path = './pictures/' + file_name
+            with open(file_path, 'wb') as file:
+                for chunk in rawResultImage.iter_content(chunk_size=16 * 1024):
+                    file.write(chunk)
+                print('Image sucessfully Downloaded: ', file_name)
+            # Upload picture in IPFS
+            ipfs_result = ipfs(file_path)
+            IPFS_HASH = ipfs_result['IpfsHash']
+            # Update table with IPFS Hash
+            # Insert picture data in table
+            tableName = 'pictures'
+            columns = [
+                'project_id',
+                'data_id',
+                'picture_id',
+                'instance',
+                'name',
+                'url',
+                'ipfshash',
+            ]
+            values = (str(project_ids[0]), str(data_id), str(picture_id), str(instance), str(file_name), str(kobo_url), str(IPFS_HASH))
+            picture_id = insert_picture(tableName, columns, values)
+            picture_id_array.append(picture_id)
         return picture_id_array
     except Exception:
         print(f"Problems creating picture with id:  {uid}")
@@ -94,7 +97,7 @@ def create_data(data, _id_array):
             if _id in _id_array:
                 if validation_status != {}:
                     tableName = 'data'
-                    query = f"UPDATE {tableName} SET blockchain = 'TRUE' WHERE _id = '{_id}' returning index;"
+                    query = f"UPDATE {tableName} SET blockchain = 'TRUE' WHERE _id = '{_id}' returning id;"
                     data_id = write_query(query)
             if _id not in _id_array:
                 # Setting up generic variables for the registry
@@ -162,7 +165,8 @@ def create_measurements(data, meas_result):
                 "_submitted_by"
                 ]
             download_url = None
-            pairs = []
+            instance = None
+            picture_id = None
             measurement_dict = {}
             file_dict = {}
             for keys, v in value.items():
@@ -173,13 +177,11 @@ def create_measurements(data, meas_result):
                             for attachment in value['_attachments']:
                                 if v == attachment['filename'].split('/')[-1]:
                                     instance = attachment['instance']
-                                    id = attachment['id']
-                                    download_url = f"{URL}{instance}/attachments/{id}/"
-                            file_dict[keys[1] + '_' + keys[2]] = [v, download_url]
+                                    picture_id = attachment['id']
+                                    download_url = f"{URL}{instance}/attachments/{picture_id}/"
+                            file_dict[keys[1] + '_' + keys[2]] = [v, instance, picture_id, download_url]
                         else:
                             measurement_dict[keys[1] + '_' + keys[2]] = v
-            pairs = list(zip(measurement_dict, file_dict))
-            print(pairs)
             # pairs.append((measurement_dict, file_dict))
             # print(pairs)
 
@@ -197,17 +199,17 @@ def create_measurements(data, meas_result):
             for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
                 v = measurement_dict[measurement_name]
                 file_name = file_dict[file][0]
-                kobo_url = file_dict[file][1]
+                instance = file_dict[file][1]
+                picture_id = file_dict[file][2]
+                kobo_url = file_dict[file][3]
                 if _id not in meas_ids and measurement_name not in meas_meas:
-                    query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, kobo_url)
-                    VALUES ({project_ids[0]}, {_id}, '{measurement_name}', {v}, '{file_name}', '{kobo_url}') RETURNING id;
+                    query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, instance, picture_id, kobo_url)
+                    VALUES ({project_ids[0]}, {_id}, '{measurement_name}', {v}, '{file_name}', '{instance}', '{picture_id}', '{kobo_url}') RETURNING id;
                     """
-                else:
-                    query = f"""UPDATE {tableName} SET value = {v}, file_name = '{file_name}', kobo_url = '{kobo_url}' WHERE measurement = '{measurement_name}';
-                    """
-                measurement_id = write_query(query)
-
-        return measurement_id
+                # else:
+                #     query = f"""UPDATE {tableName} SET value = {v}, file_name = '{file_name}', kobo_url = '{kobo_url}' WHERE measurement = '{measurement_name}' RETURNING id;
+                #     """
+                    write_query(query)
             
     except Exception:
         print(f"Problems creating the data in bcprojects:  {_id}")
@@ -339,7 +341,10 @@ if __name__ == '__main__':
     }
     rawResult = kobo_api(BASE_URL, params)
     rawResult = json.loads(rawResult.content.decode('utf-8'))
-    projects = rawResult['results']
+    if 'results' in rawResult:
+        projects = rawResult['results']
+    else:
+        []
     
     try:
         tableName = 'projects'
@@ -381,13 +386,17 @@ if __name__ == '__main__':
             tableName = 'measurement'
             query = f"SELECT _id, measurement, value, file_name FROM {tableName};"
             meas_result = read_query(query)
-            bcprojects_id = create_measurements(data, meas_result)
+            create_measurements(data, meas_result)
         # Check if transaction results are pending to be sent to the blockchain
         tableName = 'data'
         query = f"SELECT project_id, _id, id FROM {tableName} WHERE blockchain = 'TRUE' and processed = 'FALSE';"
         data_results = read_query(query)
         if data_results != [] or data_results is not None:
             for data_result in data_results:
+                picture_id_array = create_picture(data_result)
+                data_dict = {
+                    data_id: picture_id_array
+                }
 
                 # Build metadata 
                 index = build_metadata(data_result)
