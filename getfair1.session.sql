@@ -7,3 +7,4 @@ DROP TABLE projects;
 -- select * from bcprojects;
 
 -- ALTER TABLE transactions ADD COLUMN metadata1 JSON;
+

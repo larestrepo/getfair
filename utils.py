@@ -1,63 +1,8 @@
-import psycopg2
 import requests
 from requests.structures import CaseInsensitiveDict
-import os
 from decouple import config
 from pinata import PinataPy
-
-
-def connect_database():
-    try:
-        conn=psycopg2.connect("dbname='postgres' user='getfair' password='getfairproject' host='getfair.c9pnmejp0cev.us-east-1.rds.amazonaws.com' port='5432' ") 
-        cur=conn.cursor()
-        # print ("\ncreated cursor object:", cur)
-        return cur, conn
-    except (Exception, psycopg2.Error) as err:
-        print ("\npsycopg2 connect error:", err)
-        conn = None
-        cur = None
-        return cur, conn
-
-def write_query(query):
-    cur, conn = connect_database()
-    if cur != None:
-        id = None
-
-        try:
-            cur.execute( query )
-            id = cur.fetchone()[0]
-            conn.commit()
-
-            print ('\nfinished CREATE OR INSERT TABLES execution')
-
-        except (Exception, psycopg2.Error) as error:
-            print("\nexecute_sql() error:", error)
-            conn.rollback()
-
-        # close the cursor and connection
-        cur.close()
-        conn.close()
-        return id
-
-def read_query(query):
-    cur, conn = connect_database()
-    if cur != None:
-
-        try:
-            cur.execute( query )
-            conn.commit()
-
-            print ('\nfinished SELECT execution')
-            return cur.fetchall()
-
-        except (Exception, psycopg2.Error) as error:
-            print("\nexecute_sql() error:", error)
-            conn.rollback()
-            return None 
-
-        # close the cursor and connection
-        cur.close()
-        conn.close()
+from blockfrost import BlockFrostApi, ApiError, ApiUrls
 
 def kobo_api(URL, params= {}):
     headers = CaseInsensitiveDict()
@@ -77,10 +22,25 @@ def ipfs(file_path_name):
     print(f"IPFS hash is: {cid}")
     return cid
 
+def confirm_transaction(hash):
+
+    api = BlockFrostApi(
+        project_id=config('BLOCKFROST_API_KEY'),  # or export environment variable BLOCKFROST_PROJECT_ID
+        # optional: pass base_url or export BLOCKFROST_API_URL to use testnet, defaults to ApiUrls.mainnet.value
+        base_url=ApiUrls.testnet.value,
+    )
+    try:
+        transaction = api.transaction(hash=hash, return_type='json')
+        return transaction
+
+    except ApiError as e:
+        print(e)
+        return e
+
+
 """
 Activate when running manually
 """
 
 if __name__ == '__main__':
-    query = "SELECT * FROM projects;"
-    result = read_query(query)
+    pass

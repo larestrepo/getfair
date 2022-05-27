@@ -81,8 +81,6 @@ def create_tables():
             dlocation TEXT,
             mlocation TEXT,
             submission TIMESTAMP,
-            blockchain BOOLEAN,
-            processed BOOLEAN,
             FOREIGN KEY (project_id)
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
@@ -119,6 +117,7 @@ def create_tables():
             metadata json,
             fees BIGINT,
             network text,
+            processed BOOLEAN,
             FOREIGN KEY (data_id)
                 REFERENCES data (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
@@ -222,8 +221,6 @@ def insert_picture(tableName, columns, values):
     finally:
         if conn is not None:
             conn.close()
-
-    return picture_id
 
 
 def read_query(command):

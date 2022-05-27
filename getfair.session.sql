@@ -12,6 +12,8 @@
 -- ALTER TABLE data
     -- ALTER COLUMN processed SET DEFAULT FALSE;
 
--- UPDATE data SET processed = 'false'
+-- UPDATE transactions SET processed = 'false'
 
-select * from pictures where name= '1653425259731.png';
+-- update data set blockchain = FALSE where _id = 158936327;
+
+select * from pictures where project_id='3'

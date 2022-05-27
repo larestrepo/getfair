@@ -1,6 +1,6 @@
 #!/usr/bin/python
-from utils import kobo_api
-from dblib import create_tables, insert_project, read_query, write_query
+from utils import kobo_api, ipfs
+from dblib import create_tables, insert_project, read_query, write_query, insert_picture
 import json
 
 
@@ -54,7 +54,7 @@ def create_data(data, _id_array):
             if _id in _id_array:
                 if validation_status != {}:
                     tableName = 'data'
-                    query = f"UPDATE {tableName} SET blockchain = 'TRUE' WHERE _id = '{_id}';"
+                    query = f"UPDATE {tableName} SET validation = '{validation_status['label']}' WHERE _id = {_id} RETURNING id;"
                     write_query(query)
             if _id not in _id_array:
                 # Setting up generic variables for the registry
@@ -66,12 +66,9 @@ def create_data(data, _id_array):
                 data_dict['dlocation'] = value['group_usuario/departamento_ubicacion']
                 data_dict['mlocation'] = value['group_usuario/municipio_ubicacion']
                 data_dict['gpslocation'] = value['group_usuario/ubicacion_usuario']
-                data_dict['processed'] = "False"
-                data_dict['blockchain'] = "False"
                 data_dict['submission'] = value['_submission_time']
                 validation_status = value['_validation_status']
                 if validation_status != {}:
-                    data_dict['blockchain'] = "True"
                     data_dict['validation'] = validation_status['label']
                 tableName = 'data'
                 columns = []
@@ -93,6 +90,55 @@ def create_data(data, _id_array):
     except Exception:
         print(f"Problems creating the data:  {_id}")
 
+def create_picture(data_result):
+    try:
+        
+        project_id = data_result[0]
+        _id = data_result[1]
+        data_id = data_result[2]
+        # Check if existing pictures are present
+        tableName = 'pictures'
+        query = f"SELECT picture_id FROM {tableName} WHERE project_id = '{project_id}' and data_id = '{data_id}'"
+        existing_pictures = read_query(query)
+        existing_pictures = list(zip(*existing_pictures))
+        if existing_pictures == []:
+            existing_pictures = [()]
+        tableName = 'measurement'
+        query = f"SELECT file_name, instance, picture_id, kobo_url FROM {tableName} WHERE project_id = '{project_id}' and _id = '{_id}'"
+        picture_results = read_query(query)
+        for picture_result in picture_results:
+            file_name = picture_result[0]
+            instance = picture_result[1]
+            picture_id = picture_result[2]
+            kobo_url = picture_result[3]
+            if picture_id not in existing_pictures[0]:
+                rawResultImage = kobo_api(kobo_url)
+                # Store pictures in folder
+                rawResultImage.raw.decode_content = True
+                file_path = './pictures/' + file_name
+                with open(file_path, 'wb') as file:
+                    for chunk in rawResultImage.iter_content(chunk_size=16 * 1024):
+                        file.write(chunk)
+                    print('Image sucessfully Downloaded: ', file_name)
+                # Upload picture in IPFS
+                ipfs_result = ipfs(file_path)
+                IPFS_HASH = ipfs_result['IpfsHash']
+                # Update table with IPFS Hash
+                # Insert picture data in table
+                tableName = 'pictures'
+                columns = [
+                    'project_id',
+                    'data_id',
+                    'picture_id',
+                    'instance',
+                    'name',
+                    'url',
+                    'ipfshash',
+                ]
+                values = (str(project_id), str(data_id), str(picture_id), str(instance), str(file_name), str(kobo_url), str(IPFS_HASH))
+                insert_picture(tableName, columns, values)
+    except Exception:
+        print(f"Problems creating picture with id:  {uid}")
 
 def create_measurements(data, meas_result):
 
@@ -196,6 +242,7 @@ if __name__ == '__main__':
         query = f"SELECT id, uid FROM {tableName};"
         project_query_result = read_query(query)
         for project_ids in project_query_result:
+            project_id = project_ids[0]
             ASSET_UID = project_ids[1]
             URL = f'https://kf.kobotoolbox.org/api/v2/assets/{ASSET_UID}/data/'
             params = {
@@ -222,5 +269,12 @@ if __name__ == '__main__':
             query = f"SELECT _id, measurement, value, file_name FROM {tableName};"
             meas_result = read_query(query)
             create_measurements(data, meas_result)
+            # Check if transaction results are pending to be sent to the blockchain
+            tableName = 'data'
+            query = f"SELECT project_id, _id, id FROM {tableName} WHERE validation = 'Approved' and project_id='{project_id}';"
+            data_results = read_query(query)
+            if data_results != [] or data_results is not None:
+                for data_result in data_results:
+                    create_picture(data_result)
     except TypeError:
         print("No projects found in table projects")
