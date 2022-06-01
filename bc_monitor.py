@@ -1,6 +1,5 @@
 #!/usr/bin/python
-from utils import confirm_transaction
-from dblib import create_tables, insert_project, read_query, build_column_values, write_query, insert_picture
+from dblib import read_query, write_query
 import json
 from psycopg2.extras import Json
 from CardanoPython.src.cardano import base

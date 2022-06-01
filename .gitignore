@@ -9,5 +9,11 @@ database.ini
 signfiles/lambda_function.py
 lambda/upload_s3.py
 psql/create_json_project.py
-CardanoPython
+/CardanoPython
 /backups
+/lambda
+/signfiles
+getfair.session.sql
+getfair1.session.sql
+ipfs.py
+pinata.py
