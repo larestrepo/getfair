@@ -6,7 +6,7 @@ from blockfrost import BlockFrostApi, ApiError, ApiUrls
 
 def kobo_api(URL, params= {}):
     headers = CaseInsensitiveDict()
-    headers["Authorization"] = "Token f820e2c138e487e28c87fbb9af4685f7f68051a4"
+    headers["Authorization"] = "Token XXXXXXXXXXXX"
 
     resp = requests.get(URL, headers=headers, params=params)
     rawResult = resp
