@@ -2,6 +2,7 @@
 from utils import kobo_api, ipfs
 from dblib import create_tables, insert_project, read_query, write_query, insert_picture
 import json
+from psycopg2.extras import Json
 
 
 def create_projects(projects, uid_array):
@@ -59,26 +60,33 @@ def create_data(data, _id_array):
             if _id not in _id_array:
                 # Setting up generic variables for the registry
                 data_dict['project_id'] = project_ids[0]
-                data_dict['_id'] = value['_id']
-                data_dict['_uuid'] = value['_uuid']
-                data_dict['usuario'] = value['group_usuario/nombre_usuario']
-                data_dict['role'] = value['group_usuario/cargo_usuario']
-                data_dict['dlocation'] = value['group_usuario/departamento_ubicacion']
-                data_dict['mlocation'] = value['group_usuario/municipio_ubicacion']
-                data_dict['gpslocation'] = value['group_usuario/ubicacion_usuario']
-                data_dict['submission'] = value['_submission_time']
-                validation_status = value['_validation_status']
-                if validation_status != {}:
-                    data_dict['validation'] = validation_status['label']
+                data_dict['_id'] = value.get('_id', None)
+                data_dict['_uuid'] = value.get('_uuid', None)
+                data_dict['usuario'] = value.get('group_presentacion/nombre_usuario', None)
+                data_dict['role'] = value.get('group_presentacion/cargo_usuario', None)
+                data_dict['dlocation'] = value.get('group_presentacion/departamento_ubicacion', None)
+                data_dict['mlocation'] = value.get('group_presentacion/municipio_ubicacion', None)
+                data_dict['gpslocation'] = value.get('group_presentacion/ubicacion_usuario', None)
+                data_dict['submission'] = value.get('_submission_time', None)
+                validation_status = value.get('_validation_status', None)
+                if validation_status != {} or not None:
+                    data_dict['validation'] = validation_status.get('label')
+                all_in_dict = {}
+                for k, v in value.items():
+                    if k.startswith('group_presentacion'):
+                        all_in_dict[k] = v
+                data_dict['json'] = all_in_dict
                 tableName = 'data'
-                columns = []
-                for k in data_dict.keys():
-                    columns = list(data_dict.keys())
+                columns = list(data_dict.keys())
                 values = []
                 for value in data_dict.values():
                     if type(value) == str:
                         value = value.replace("'", "''")
                         value = "'" + value + "'"
+                    if type(value) == dict:
+                        value = Json(value)
+                    if value == None:
+                        value = 'NULL'
                     values += [str(value)]
 
                 query = f"INSERT INTO {tableName}"
@@ -88,7 +96,7 @@ def create_data(data, _id_array):
                 write_query(query)
 
     except Exception:
-        print(f"Problems creating the data:  {_id}")
+        print(f"Problems creating the data:  {_id} of project {project_ids[0]}")
 
 def create_picture(data_result):
     try:
@@ -104,14 +112,15 @@ def create_picture(data_result):
         if existing_pictures == []:
             existing_pictures = [()]
         tableName = 'measurement'
-        query = f"SELECT file_name, instance, picture_id, kobo_url FROM {tableName} WHERE project_id = '{project_id}' and _id = '{_id}'"
+        query = f"SELECT id, file_name, instance, picture_id, kobo_url FROM {tableName} WHERE project_id = '{project_id}' and _id = '{_id}'"
         picture_results = read_query(query)
         for picture_result in picture_results:
-            file_name = picture_result[0]
-            instance = picture_result[1]
-            picture_id = picture_result[2]
-            kobo_url = picture_result[3]
-            if picture_id not in existing_pictures[0]:
+            measurement_id = picture_result[0]
+            file_name = picture_result[1]
+            instance = picture_result[2]
+            picture_id = picture_result[3]
+            kobo_url = picture_result[4]
+            if picture_id not in existing_pictures[0] and picture_id != None:
                 rawResultImage = kobo_api(kobo_url)
                 # Store pictures in folder
                 rawResultImage.raw.decode_content = True
@@ -137,6 +146,8 @@ def create_picture(data_result):
                 ]
                 values = (str(project_id), str(data_id), str(picture_id), str(instance), str(file_name), str(kobo_url), str(IPFS_HASH))
                 insert_picture(tableName, columns, values)
+            else:
+                print(f"No pictures to upload in project id: {project_id}, in _id: {_id} in data id: {data_id} and in measurement_id: {measurement_id}")
     except Exception:
         print(f"Problems creating picture with id:  {uid}")
 
@@ -148,13 +159,9 @@ def create_measurements(data, meas_result):
             exclusions = [
                 "_id",
                 'formhub/uuid',
-                "group_usuario/nombre_usuario",
-                "group_usuario/cargo_usuario",
-                "group_usuario/nombre_instalacion",
-                "group_usuario/departamento_ubicacion",
-                "group_usuario/municipio_ubicacion",
-                "group_usuario/ubicacion_usuario",
-                "group_usuario/ubicacion_usuario_ts",
+                "group_presentacion/nombre_usuario",
+                "group_presentacion/nombre_usuario_ts",
+                "group_presentacion/nombre_instalacion",
                 '__version__',
                 'meta/instanceID',
                 '_xform_id_string',
@@ -183,9 +190,9 @@ def create_measurements(data, meas_result):
                                     instance = attachment['instance']
                                     picture_id = attachment['id']
                                     download_url = f"{URL}{instance}/attachments/{picture_id}/"
-                            file_dict[keys[1] + '_' + keys[2]] = [v, instance, picture_id, download_url]
+                            file_dict[keys[0] + '_' + keys[1]] = [v, instance, picture_id, download_url]
                         else:
-                            measurement_dict[keys[1] + '_' + keys[2]] = v
+                            measurement_dict[keys[0] + '_' + keys[1]] = v
             # Create the first records in data table
             tableName = 'measurement'
             meas_ids = []
@@ -197,17 +204,27 @@ def create_measurements(data, meas_result):
                 meas_meas.append(meas[1])
                 meas_values.append(meas[2])
                 meas_files.append(meas[3])
-            for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
-                v = measurement_dict[measurement_name]
-                file_name = file_dict[file][0]
-                instance = file_dict[file][1]
-                picture_id = file_dict[file][2]
-                kobo_url = file_dict[file][3]
-                if _id not in meas_ids and measurement_name not in meas_meas:
-                    query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, instance, picture_id, kobo_url)
-                    VALUES ({project_ids[0]}, {_id}, '{measurement_name}', {v}, '{file_name}', '{instance}', '{picture_id}', '{kobo_url}') RETURNING id;
-                    """
-                    write_query(query)
+            
+            if file_dict == {}:
+                # Means that there are no attachment
+                for k, v in measurement_dict.items():
+                    if _id not in meas_ids:
+                        query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, instance, picture_id, kobo_url)
+                        VALUES ({project_ids[0]}, {_id}, '{k}', '{v}', NULL, NULL, NULL, NULL) RETURNING id;
+                        """
+                        write_query(query)
+            else:
+                for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
+                    v = measurement_dict[measurement_name]
+                    file_name = file_dict[file][0]
+                    instance = file_dict[file][1]
+                    picture_id = file_dict[file][2]
+                    kobo_url = file_dict[file][3]
+                    if _id not in meas_ids and measurement_name not in meas_meas:
+                        query = f"""INSERT INTO {tableName} (project_id, _id, measurement, value, file_name, instance, picture_id, kobo_url)
+                        VALUES ({project_ids[0]}, {_id}, '{measurement_name}', '{v}', '{file_name}', '{instance}', '{picture_id}', '{kobo_url}') RETURNING id;
+                        """
+                        write_query(query)
 
     except Exception:
         print("Problems creating the data")
@@ -223,6 +240,8 @@ if __name__ == '__main__':
     }
     rawResult = kobo_api(BASE_URL, params)
     rawResult = json.loads(rawResult.content.decode('utf-8'))
+    with open('./rawresult.json', 'w') as file:
+        json.dump(rawResult, file, indent=4, ensure_ascii=False)
     if 'results' in rawResult:
         projects = rawResult['results']
     else:

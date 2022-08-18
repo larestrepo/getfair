@@ -17,3 +17,4 @@ getfair.session.sql
 getfair1.session.sql
 ipfs.py
 pinata.py
+utils.py

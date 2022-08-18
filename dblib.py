@@ -81,6 +81,7 @@ def create_tables():
             dlocation TEXT,
             mlocation TEXT,
             submission TIMESTAMP,
+            json  JSON,
             FOREIGN KEY (project_id)
                 REFERENCES projects (id)
                 ON UPDATE CASCADE ON DELETE CASCADE
@@ -129,7 +130,7 @@ def create_tables():
             project_id INTEGER NOT NULL,
             _id BIGINT,
             measurement TEXT,
-            value NUMERIC,
+            value TEXT,
             file_name TEXT,
             instance BIGINT,
             picture_id BIGINT,
