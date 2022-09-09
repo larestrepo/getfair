@@ -6,6 +6,8 @@ import json
 from psycopg2.extras import Json
 from datetime import date, datetime
 import time
+from unidecode import unidecode
+import unicodedata
 
 def create_projects(projects, uid_array):
     date_created_criteria = '2022-08-01'
@@ -158,6 +160,7 @@ def create_picture(data_result):
                 # Upload picture in IPFS
                 ipfs_result = ipfs(file_path)
                 IPFS_HASH = ipfs_result['IpfsHash']
+                IPFS_HASH = 'ipfs://' + IPFS_HASH
                 # Update table with IPFS Hash
                 # Insert picture data in table
                 tableName = 'pictures'
@@ -221,7 +224,7 @@ def create_measurements(data, meas_result):
                         keys_archive = measurement_name[0] + '_' + 'Arc'
                         if family_group + '/' + keys_archive in value.keys(): 
                             value_archive = value.get(family_group + '/' + keys_archive)
-                            value_archive = value_archive.replace(" ", "_")
+                            value_archive = unidecode(value_archive.replace(" ", "_"))
                         # if 'Arc' in keys:
                             for attachment in value.get('_attachments'):
                                 if value_archive == attachment['filename'].split('/')[-1]:

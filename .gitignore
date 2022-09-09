@@ -5,6 +5,7 @@ Aguacate_project_filtered.json
 database.ini
 .env
 /priv
+/.priv
 *.json
 signfiles/lambda_function.py
 lambda/upload_s3.py
@@ -18,3 +19,4 @@ getfair1.session.sql
 ipfs.py
 pinata.py
 utils.py
+results.csv
