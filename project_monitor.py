@@ -10,7 +10,7 @@ from unidecode import unidecode
 import unicodedata
 
 def create_projects(projects, uid_array):
-    date_created_criteria = '2022-08-01'
+    date_created_criteria = '2022-10-01'
     date_created_criteria = datetime.strptime(date_created_criteria, "%Y-%m-%d").date()
     uid = None
     project_id_array = []
@@ -53,6 +53,169 @@ def create_projects(projects, uid_array):
             print(f"No projects to upload")
     except Exception:
         print(f"Problems creating project with id:  {uid}")
+
+
+def create_dataV2(data, _id_array):
+    _id = None
+    try:
+        for value in data:
+            data_dict = {}
+            _id = value['_id']
+            validation_status = value.get('_validation_status', None)
+            if validation_status != {}:
+                for (a, b) in _id_array:
+                    if _id == a:
+                        if validation_status['label'] != b:
+                            tableName = 'data'
+                            query = f"UPDATE {tableName} SET validation = '{validation_status['label']}' WHERE _id = {_id} RETURNING id;"
+                            write_query(query)
+            results = list(zip(*_id_array))
+            if _id_array == [] or (_id_array != [] and _id not in results[0]):
+                # Setting up generic variables for the registry
+                data_dict['project_id'] = project_ids[0]
+                data_dict['_id'] = value.get('_id', None)
+                data_dict['_uuid'] = value.get('_uuid', None)
+                if validation_status != {} or not None:
+                    data_dict['validation'] = validation_status.get('label')
+                data_dict['submission'] = value.get('_submission_time', None)
+
+                all_in_dict = {}
+                # Setting up variables for json
+                all_in_dict['nombre_instalacion'] = value.get('group_trazabilidad/nombre_instalacion', None)
+                all_in_dict['pais_instalacion'] = value.get('group_trazabilidad/pais_instalacion', None)
+                all_in_dict['depto_instalacion'] = value.get('group_trazabilidad/depto_instalacion', None)
+                all_in_dict['municipio_instalacion'] = value.get('group_trazabilidad/municipio_instalacion', None)
+                all_in_dict['nombre_etapa'] = value.get('group_trazabilidad/nombre_etapa', None)
+                all_in_dict['numero_etapa'] = value.get('group_trazabilidad/numero_etapa', None)
+                all_in_dict['ubicacion_instalacion'] = value.get('group_trazabilidad/ubicacion_instalacion', None)
+                all_in_dict['latitud_instalacion'] = value.get('group_trazabilidad/latitud_instalacion', None)
+                all_in_dict['longitud_instalacion'] = value.get('group_trazabilidad/longitud_instalacion', None)
+
+                # for k, v in value.items():
+                #     if k.startswith('group_trazabilidad'):
+                #         all_in_dict[k] = v
+                data_dict['json'] = all_in_dict
+                tableName = 'data'
+                columns = list(data_dict.keys())
+                values = []
+                for value in data_dict.values():
+                    if type(value) == str:
+                        value = value.replace("'", "''")
+                        value = "'" + value + "'"
+                    if type(value) == dict:
+                        value = Json(value)
+                    if value == None:
+                        value = 'NULL'
+                    values += [str(value)]
+
+                query = f"INSERT INTO {tableName}"
+                query += "(" + ", ".join(columns) + ")\nVALUES"
+                query += "(" + ", ".join(values) + "), \n"
+                query = query[:-3] + " RETURNING id;"
+                write_query(query)
+
+    except Exception:
+        print(f"Problems creating the data:  {_id} of project {project_ids[0]}")
+
+def create_measurementsV2(data, meas_result):
+
+    try:
+        for value in data:
+            _id = value['_id']
+            kobo_url = None
+            instance = None
+            picture_id = None
+            measurement_dict = {}
+            file_dict = {}
+            for keys, v in value.items():
+                # if keys not in exclusions:
+                family_group = 'group_trazabilidad'
+                if 'foto' in keys:
+                    v = v.replace("(", "")
+                    v = v.replace(")", "")
+                    value_archive = unidecode(v.replace(" ", "_"))
+                    attachements = value.get('_attachments')  # type: ignore
+                    for attachment in attachements:
+                        if value_archive == attachment['filename'].split('/')[-1]:
+                            instance = attachment['instance']
+                            picture_id = attachment['id']
+                            kobo_url = f"{URL}{instance}/attachments/{picture_id}/"
+                    measurement_dict['project_id'] = project_ids[0]
+                    measurement_dict['_id'] = _id
+                    measurement_dict['measurement'] = None
+                    measurement_dict['value'] = None
+                    measurement_dict['file_name'] = value_archive
+                    measurement_dict['instance'] = instance
+                    measurement_dict['picture_id'] = picture_id
+                    measurement_dict['kobo_url'] = kobo_url
+
+                    
+                    
+                #     file_dict[keys_archive] = [value_archive, instance, picture_id, download_url]
+                # if family_group == keys.split('/')[0] and '_Arc' not in keys.split('/')[-1]:
+                #     if v != [] or v != {}:
+                #         measurement_name = keys.split('/')[-1].split('_')
+                #         measurement_dict[measurement_name[0] + '_' + measurement_name[1]] = v
+                #         keys_archive = measurement_name[0] + '_' + 'Arc'
+                #         if family_group + '/' + keys_archive in value.keys(): 
+                #             value_archive = value.get(family_group + '/' + keys_archive)
+                #             value_archive = unidecode(value_archive.replace(" ", "_"))
+                #         # if 'Arc' in keys:
+                #             for attachment in value.get('_attachments'):
+                #                 if value_archive == attachment['filename'].split('/')[-1]:
+                #                     instance = attachment['instance']
+                #                     picture_id = attachment['id']
+                #                     download_url = f"{URL}{instance}/attachments/{picture_id}/"
+                #             file_dict[keys_archive] = [value_archive, instance, picture_id, download_url]
+                #         else:
+                #             file_dict[keys_archive] = None
+                    # Create the first records in data table
+                    meas_ids = []
+                    meas_meas = []
+                    meas_values = []
+                    meas_files = []
+                    for meas in meas_result:
+                        meas_ids.append(meas[0])
+                        meas_meas.append(meas[1])
+                        meas_values.append(meas[2])
+                        meas_files.append(meas[3])
+                    
+                    tableName = 'measurement'
+                    # for i, (measurement_name, file) in enumerate(zip(measurement_dict, file_dict)):
+                    #     v = "'" + measurement_dict.get(measurement_name, '').replace("'", "''") + "'"
+                    #     # v = measurement_dict.get(measurement_name)
+                    #     file_details = file_dict.get(file)
+                    #     file_name = 'NULL'
+                    #     instance = 'NULL'
+                    #     picture_id = 'NULL'
+                    #     kobo_url = 'NULL'
+                    #     if file_details is not None:
+                    #         file_name = "'" + file_details[0].replace("'", "''") + "'"
+                    #         instance = file_details[1]
+                    #         picture_id = file_details[2]
+                    #         kobo_url = "'" + file_details[3].replace("'", "''") + "'"
+                        
+                    if _id not in meas_ids:
+                        columns = list(measurement_dict.keys())
+                        values = []
+                        for field in measurement_dict.values():
+                            if type(field) == str:
+                                field = field.replace("'", "''")
+                                field = "'" + field + "'"
+                            if type(field) == dict:
+                                field = Json(field)
+                            if field == None:
+                                field = 'NULL'
+                            values += [str(field)]
+
+                        query = f"INSERT INTO {tableName}"
+                        query += "(" + ", ".join(columns) + ")\nVALUES"
+                        query += "(" + ", ".join(values) + "), \n"
+                        query = query[:-3] + " RETURNING id;"
+                        write_query(query)
+
+    except Exception:
+        print("Problems creating the data")
 
 
 def create_data(data, _id_array):
@@ -317,16 +480,17 @@ if __name__ == '__main__':
             tableName = 'data'
             query = f"SELECT _id, validation FROM {tableName};"
             _id_array = read_query(query)
-            # _id_array = []
-            # if _ids != [] or _ids is not None:
-            #     for _id in _ids:
-            #         _id_array.append(_id[0])
-            # Insert new data or update data if validation is true
-            create_data(data, _id_array)
+
             tableName = 'measurement'
             query = f"SELECT _id, measurement, value, file_name FROM {tableName};"
             meas_result = read_query(query)
-            create_measurements(data, meas_result)
+
+            if ASSET_UID == 'a3pDRvFG2FNQwP8BeDAexS':
+                create_dataV2(data, _id_array)
+                create_measurementsV2(data, meas_result)
+            else:
+                create_data(data, _id_array)
+                create_measurements(data, meas_result)
             # Check if there is data with the approved status
             tableName = 'data'
             query = f"SELECT project_id, _id, id FROM {tableName} WHERE validation = 'Approved' and project_id='{project_id}';"
