@@ -55,7 +55,7 @@ def create_projects(projects, uid_array):
         print(f"Problems creating project with id:  {uid}")
 
 
-def create_dataV2(data, _id_array):
+def create_dataV2(project_ids, data, _id_array):
     _id = None
     try:
         for value in data:
@@ -90,6 +90,7 @@ def create_dataV2(data, _id_array):
                 all_in_dict['ubicacion_instalacion'] = value.get('group_trazabilidad/ubicacion_instalacion', None)
                 all_in_dict['latitud_instalacion'] = value.get('group_trazabilidad/latitud_instalacion', None)
                 all_in_dict['longitud_instalacion'] = value.get('group_trazabilidad/longitud_instalacion', None)
+                all_in_dict['descripcion_instalacion'] = value.get('group_trazabilidad/descripcion_instalacion', None)
 
                 # for k, v in value.items():
                 #     if k.startswith('group_trazabilidad'):
@@ -117,7 +118,7 @@ def create_dataV2(data, _id_array):
     except Exception:
         print(f"Problems creating the data:  {_id} of project {project_ids[0]}")
 
-def create_measurementsV2(data, meas_result):
+def create_measurementsV2(project_ids, URL, data, meas_result):
 
     try:
         for value in data:
@@ -217,8 +218,7 @@ def create_measurementsV2(data, meas_result):
     except Exception:
         print("Problems creating the data")
 
-
-def create_data(data, _id_array):
+def create_data(project_ids, data, _id_array):
     _id = None
     try:
         for value in data:
@@ -290,11 +290,11 @@ def create_data(data, _id_array):
         print(f"Problems creating the data:  {_id} of project {project_ids[0]}")
 
 def create_picture(data_result):
+    project_id = data_result[0]
+    _id = data_result[1]
+    data_id = data_result[2]
     try:
         
-        project_id = data_result[0]
-        _id = data_result[1]
-        data_id = data_result[2]
         # Check if existing pictures are present
         tableName = 'pictures'
         query = f"SELECT picture_id FROM {tableName} WHERE project_id = '{project_id}' and data_id = '{data_id}'"
@@ -315,7 +315,7 @@ def create_picture(data_result):
                 rawResultImage = kobo_api(kobo_url)
                 # Store pictures in folder
                 rawResultImage.raw.decode_content = True
-                file_path = './pictures/' + file_name
+                file_path = '/home/ubuntu/getfair/pictures/' + file_name
                 with open(file_path, 'wb') as file:
                     for chunk in rawResultImage.iter_content(chunk_size=16 * 1024):
                         file.write(chunk)
@@ -339,9 +339,9 @@ def create_picture(data_result):
                 values = (str(project_id), str(data_id), str(picture_id), str(instance), str(file_name), str(kobo_url), str(IPFS_HASH))
                 insert_picture(tableName, columns, values)
     except Exception:
-        print(f"Problems creating picture with id:  {uid}")
+        print(f"Problems creating picture with data id:  {data_id}")
 
-def create_measurements(data, meas_result):
+def create_measurements(project_ids, URL, data, meas_result):
 
     try:
         for value in data:
@@ -396,7 +396,7 @@ def create_measurements(data, meas_result):
                                     download_url = f"{URL}{instance}/attachments/{picture_id}/"
                             file_dict[keys_archive] = [value_archive, instance, picture_id, download_url]
                         else:
-                            file_dict[keys_archive] = None
+                            file_dict[keys] = None
             # Create the first records in data table
             meas_ids = []
             meas_meas = []
@@ -463,6 +463,8 @@ if __name__ == '__main__':
         for project_ids in project_query_result:
             project_id = project_ids[0]
             ASSET_UID = project_ids[1]
+            if ASSET_UID == "aetorrJTocs2DgVfc5th8D":
+                print(ASSET_UID)
             URL = f'https://kf.kobotoolbox.org/api/v2/assets/{ASSET_UID}/data/'
             # QUERY = f'{{"_submission_time":{{"$gt":"{TODAY}"}}}}'
             params = {
@@ -486,11 +488,11 @@ if __name__ == '__main__':
             meas_result = read_query(query)
 
             if ASSET_UID == 'a3pDRvFG2FNQwP8BeDAexS':
-                create_dataV2(data, _id_array)
-                create_measurementsV2(data, meas_result)
+                create_dataV2(project_ids, data, _id_array)
+                create_measurementsV2(project_ids, URL, data, meas_result)
             else:
-                create_data(data, _id_array)
-                create_measurements(data, meas_result)
+                create_data(project_ids, data, _id_array)
+                create_measurements(project_ids, URL, data, meas_result)
             # Check if there is data with the approved status
             tableName = 'data'
             query = f"SELECT project_id, _id, id FROM {tableName} WHERE validation = 'Approved' and project_id='{project_id}';"

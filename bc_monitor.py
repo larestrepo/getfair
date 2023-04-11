@@ -134,14 +134,15 @@ def monitor_transaction(transaction_id, address):
     
 
 if __name__ == '__main__':
-    store_only = False
-    sign_name = 'MasterGetFair'
-    master_address = 'addr_test1qpr9xmkn4fpexdcd9e8kt8fektvqyrg3vetmw8pmmlava2kcyxgcpfar5pu5dlxx9y9c0mm2mtj48uz56q9aakvn2vksw633r5'
+    ASSET_UID = "aetorrJTocs2DgVfc5th8D"
+    store_only = True
+    sign_name = 'master_address'
+    master_address = 'addr1vydksv6f6h6rn53updv4w8u2pnsgj9crwkm0v8qwvc8r6wsrlfkfx'
     # try:
     # Check if transaction results are pending to be sent to the blockchain
     tableName = 'data'
     # query = f"SELECT id, project_id, _id, _uuid, gpslocation, usuario, role, dlocation, mlocation, submission FROM {tableName} WHERE validation = 'Approved';"
-    query = f"SELECT id, project_id, _id, json FROM {tableName} WHERE validation = 'Approved';"
+    query = f"SELECT id, project_id, _id, json FROM {tableName} WHERE validation = 'Approved' and project_id = (select id from projects where uid = '{ASSET_UID}') ;"
     data_results = read_query(query)
     if data_results != [] or data_results is not None:
         for data_result in data_results:

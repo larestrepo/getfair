@@ -20,3 +20,4 @@ ipfs.py
 pinata.py
 utils.py
 results.csv
+cron.log
